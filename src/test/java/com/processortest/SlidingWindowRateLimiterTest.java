@@ -1,7 +1,12 @@
 package com.processortest;
 
-import com.processortest.util.MyTimer;
-import com.processortest.util.SlidingWindowRateLimiter;
+import static org.mockito.Mockito.when;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -11,21 +16,12 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.Spy;
 import org.mockito.runners.MockitoJUnitRunner;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.mockito.Mockito.when;
+import com.processortest.util.MyTimer;
+import com.processortest.util.SlidingWindowRateLimiter;
 
 @RunWith(MockitoJUnitRunner.class)
 public class SlidingWindowRateLimiterTest {
-
-    private static final Logger LOG = LoggerFactory.getLogger(SlidingWindowRateLimiterTest.class);
-
     @Mock
     private MyTimer timer;
 

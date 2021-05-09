@@ -12,6 +12,14 @@ public class MarketData {
 	private BigDecimal last;
 	private long updateTime;
 
+	public MarketData(String symbol, BigDecimal bid, BigDecimal ask, BigDecimal last, long updateTime) {
+		this.symbol = symbol;
+		this.bid = bid;
+		this.ask = ask;
+		this.last = last;
+		this.updateTime = updateTime;
+	}
+
 	public String getSymbol() {
 		return symbol;
 	}

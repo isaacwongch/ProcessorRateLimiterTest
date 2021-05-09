@@ -25,33 +25,42 @@ public class MarketDataProcessor {
 
 	private static final Map<String, SymbolLatestUpdateHistory> symbolLastUpdateMap = new HashMap<>();
 
-	private static final SlidingWindowRateLimiter rateLimiter = new SlidingWindowRateLimiter(new MyTimer());
+	private final SlidingWindowRateLimiter rateLimiter;
 
-	private static final MyTimer time = new MyTimer();
+	private final MyTimer timer;
+
+	public MarketDataProcessor() {
+		this.rateLimiter = new SlidingWindowRateLimiter(new MyTimer());
+		this.timer = new MyTimer();
+	}
 
 	// Receive incoming market data
 	public void onMessage(MarketData data) {
-		if (rateLimiter.isAllowed()) {
-			if (isSymbolAllowed(data)) {
+		if (isSymbolAllowed(data)) {
+			if (rateLimiter.isAllowed()) {
 				LOG.debug("Allowed {}", System.currentTimeMillis());
 				publishAggregatedMarketData(data);
-			} else {
-				// different data source case
-				// will there be
+				return;
 			}
-		} else {
-			LOG.debug("****Disallowed**** {}", System.currentTimeMillis());
 		}
+		// handle rejected case, sent to the topic again?
 	}
 
-	// do something
-	private boolean isSymbolAllowed(final MarketData data) {
+	/**
+	 * Check whether symbol has been processed by the processor within [T:T-1]
+	 * and if it carries the latest market data, which is dictated by the field
+	 * {@link MarketData#getUpdateTime()}
+	 * 
+	 * @param data
+	 * @return
+	 */
+	public boolean isSymbolAllowed(final MarketData data) {
 		synchronized (symbolLastUpdateMap) {
 			SymbolLatestUpdateHistory hist = symbolLastUpdateMap.get(data.getSymbol());
-			if (hist == null || (hist.getSystemProcessTime() - time.getCurrentTime() > 1000
+			if (hist == null || (hist.getSystemProcessTime() - timer.getCurrentTime() > 1000
 					&& data.getUpdateTime() > hist.getMarketUpdateTime())) {
 				symbolLastUpdateMap.put(data.getSymbol(),
-						new SymbolLatestUpdateHistory(data.getSymbol(), data.getUpdateTime(), time.getCurrentTime()));
+						new SymbolLatestUpdateHistory(data.getSymbol(), data.getUpdateTime(), timer.getCurrentTime()));
 				return true;
 			}
 

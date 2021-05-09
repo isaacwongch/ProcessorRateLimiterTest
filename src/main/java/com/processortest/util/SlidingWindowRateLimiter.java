@@ -12,6 +12,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public class SlidingWindowRateLimiter implements RateLimiter{
     private static final Logger LOG = LoggerFactory.getLogger(SlidingWindowRateLimiter.class);
 
+    /**
+     * TODO: Memory optimization
+     */
     private final Map<Long, Integer> timeHitCountMap;
     private final MyTimer timer;
 
@@ -23,8 +26,8 @@ public class SlidingWindowRateLimiter implements RateLimiter{
         this.timeHitCountMap = new ConcurrentHashMap<>();
     }
 
-
-    public boolean isAllowed() {
+    public synchronized boolean isAllowed() {
+        // TODO: Reduce lock contention
         long currentTime = timer.getCurrentTime();
         long curWindowKey = currentTime / 1000 * 1000;
         LOG.debug("Current window key: " + curWindowKey);
@@ -44,6 +47,7 @@ public class SlidingWindowRateLimiter implements RateLimiter{
             return false;
         }
 
+        // Approximate count
         double check = ((double) ONE_SECOND - currentTime + curWindowKey) / ONE_SECOND;
         double result = prevCount * (check) + currentCount;
         LOG.debug("{}*({}-{}+{})/{})+{} result: {}", prevCount, ONE_SECOND, currentTime, curWindowKey, ONE_SECOND, currentCount,
