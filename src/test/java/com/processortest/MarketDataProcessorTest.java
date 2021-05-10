@@ -54,6 +54,28 @@ public final class MarketDataProcessorTest {
     }
 
     @Test
+    public void testPublishMoreThanHundredPerSecond(){
+        Faker faker = new Faker(new Random(9));
+        when(timer.getCurrentTime()).thenReturn(500L);
+        for (int i = 0; i < 1000; i++) {
+            marketDataProcessor.onMessage(getDummyMarketData(faker.stock().nsdqSymbol(), 500));
+        }
+        when(timer.getCurrentTime()).thenReturn(1000L);
+        for (int i = 0; i < 1000; i++) {
+            marketDataProcessor.onMessage(getDummyMarketData(faker.stock().nsdqSymbol(), 1000));
+        }
+        when(timer.getCurrentTime()).thenReturn(1500L);
+        for (int i = 0; i < 1000; i++) {
+            marketDataProcessor.onMessage(getDummyMarketData(faker.stock().nsdqSymbol(), 1500));
+        }
+        when(timer.getCurrentTime()).thenReturn(2000L);
+        for (int i = 0; i < 1000; i++) {
+            marketDataProcessor.onMessage(getDummyMarketData(faker.stock().nsdqSymbol(), 2000));
+        }
+        verify(marketDataProcessor, times(200)).publishAggregatedMarketData(any());
+    }
+
+    @Test
     public void testSymbolNotHaveMoreThanOneUpdatePerSecond(){
         when(timer.getCurrentTime()).thenReturn(1000L);
         for (int i = 0; i < 100; i++) {
@@ -85,7 +107,7 @@ public final class MarketDataProcessorTest {
      * updated time 1620664496440 and 1620664496430 (one is outdated) came respectively.
      */
     @Test
-    public void testSymbolAlwaysHaveTheLatestDataWhenPublish() {
+    public void testSymbolAlwaysHaveTheLatestDataWhenPublishOneOutdatedData() {
         when(timer.getCurrentTime()).thenReturn(1620664506540L);
         marketDataProcessor.onMessage(getDummyMarketData("MSFT", 1620664496540L));
         when(timer.getCurrentTime()).thenReturn(1620664507540L);
