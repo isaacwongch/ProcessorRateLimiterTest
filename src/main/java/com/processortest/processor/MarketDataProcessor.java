@@ -23,15 +23,16 @@ import com.processortest.util.SlidingWindowRateLimiter;
 public class MarketDataProcessor {
 	private static final Logger LOG = LoggerFactory.getLogger(MarketDataProcessor.class);
 
-	private static final Map<String, SymbolLatestUpdateHistory> symbolLastUpdateMap = new HashMap<>();
+	private final Map<String, SymbolLatestUpdateHistory> symbolLastUpdateMap;
 
 	private final SlidingWindowRateLimiter rateLimiter;
 
 	private final MyTimer timer;
 
-	public MarketDataProcessor() {
-		this.rateLimiter = new SlidingWindowRateLimiter(new MyTimer());
-		this.timer = new MyTimer();
+	public MarketDataProcessor(final MyTimer timer) {
+		this.rateLimiter = new SlidingWindowRateLimiter(timer);
+		this.timer = timer;
+		this.symbolLastUpdateMap = new HashMap<>();
 	}
 
 	// Receive incoming market data
@@ -40,10 +41,9 @@ public class MarketDataProcessor {
 			if (rateLimiter.isAllowed()) {
 				LOG.debug("Allowed {}", System.currentTimeMillis());
 				publishAggregatedMarketData(data);
-				return;
 			}
 		}
-		// handle rejected case, sent to the topic again?
+		// handle rejected cases, sent to dead letter queue?
 	}
 
 	/**
@@ -57,7 +57,7 @@ public class MarketDataProcessor {
 	public boolean isSymbolAllowed(final MarketData data) {
 		synchronized (symbolLastUpdateMap) {
 			SymbolLatestUpdateHistory hist = symbolLastUpdateMap.get(data.getSymbol());
-			if (hist == null || (hist.getSystemProcessTime() - timer.getCurrentTime() > 1000
+			if (hist == null || (timer.getCurrentTime() - hist.getSystemProcessTime()  > 1000
 					&& data.getUpdateTime() > hist.getMarketUpdateTime())) {
 				symbolLastUpdateMap.put(data.getSymbol(),
 						new SymbolLatestUpdateHistory(data.getSymbol(), data.getUpdateTime(), timer.getCurrentTime()));

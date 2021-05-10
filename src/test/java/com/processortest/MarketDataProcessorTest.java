@@ -13,14 +13,14 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.Spy;
 import org.mockito.runners.MockitoJUnitRunner;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.github.javafaker.Faker;
 import com.processortest.model.MarketData;
 import com.processortest.processor.MarketDataProcessor;
 import com.processortest.util.MyTimer;
 import com.processortest.util.SlidingWindowRateLimiter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @RunWith(MockitoJUnitRunner.class)
 public final class MarketDataProcessorTest {
@@ -35,11 +35,12 @@ public final class MarketDataProcessorTest {
     private SlidingWindowRateLimiter rateLimiter;
 
     @Spy
+    @InjectMocks
     private MarketDataProcessor marketDataProcessor;
 
     @Before
     public void before() {
-        Mockito.reset(rateLimiter);
+        Mockito.reset(rateLimiter,marketDataProcessor);
     }
 
     @Test
@@ -61,9 +62,37 @@ public final class MarketDataProcessorTest {
         verify(marketDataProcessor, times(1)).publishAggregatedMarketData(any());
     }
 
-    @Test
-    public void testSymbolAlwaysHaveTheLatestDataWhenPublish(){
+	/**
+	 * At an earlier point in time, processed MSFT with updated time as
+	 * 1620664496540. 1s later and 2s later another 2 events for MSFT with
+	 * updated time 1620664496440 and 1620664496430 (both are outdated) came
+	 * respectively.
+	 */
+	@Test
+	public void testSymbolAlwaysHaveTheLatestDataWhenPublishTwoOutdatedData() {
+		when(timer.getCurrentTime()).thenReturn(1620664506540L);
+		marketDataProcessor.onMessage(getDummyMarketData("MSFT", 1620664496540L));
+		when(timer.getCurrentTime()).thenReturn(1620664507540L);
+		marketDataProcessor.onMessage(getDummyMarketData("MSFT", 1620664496440L));
+		when(timer.getCurrentTime()).thenReturn(1620664508540L);
+		marketDataProcessor.onMessage(getDummyMarketData("MSFT", 1620664496430L));
+		verify(marketDataProcessor, times(1)).publishAggregatedMarketData(any());
+	}
 
+    /**
+     * At an earlier point in time, processed MSFT with updated time as
+     * 1620664496540. 1s later and 2s later another 2 events for MSFT with
+     * updated time 1620664496440 and 1620664496430 (one is outdated) came respectively.
+     */
+    @Test
+    public void testSymbolAlwaysHaveTheLatestDataWhenPublish() {
+        when(timer.getCurrentTime()).thenReturn(1620664506540L);
+        marketDataProcessor.onMessage(getDummyMarketData("MSFT", 1620664496540L));
+        when(timer.getCurrentTime()).thenReturn(1620664507540L);
+        marketDataProcessor.onMessage(getDummyMarketData("MSFT", 1620664496440L));
+        when(timer.getCurrentTime()).thenReturn(1620664508540L);
+        marketDataProcessor.onMessage(getDummyMarketData("MSFT", 1620664496840L));
+        verify(marketDataProcessor, times(2)).publishAggregatedMarketData(any());
     }
 
     private MarketData getDummyMarketData(final String symbol, final long updateTime){
