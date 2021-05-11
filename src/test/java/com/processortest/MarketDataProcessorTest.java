@@ -81,23 +81,25 @@ public final class MarketDataProcessorTest {
     @Test
     public void testPublishMoreThanHundredPerSecond(){
         Faker faker = new Faker(new Random(9));
-        when(timer.getCurrentTime()).thenReturn(500L);
-        for (int i = 0; i < 1000; i++) {
+        when(timer.getCurrentTime()).thenReturn(1620664506540L);
+        for (int i = 0; i < 100; i++) {
             marketDataProcessor.onMessage(getDummyMarketData(faker.stock().nsdqSymbol(), 500));
         }
-        when(timer.getCurrentTime()).thenReturn(1000L);
-        for (int i = 0; i < 1000; i++) {
+        verify(marketDataProcessor, times(100)).publishAggregatedMarketData(any());
+        when(timer.getCurrentTime()).thenReturn(1620664506640L);
+        for (int i = 0; i < 100; i++) {
             marketDataProcessor.onMessage(getDummyMarketData(faker.stock().nsdqSymbol(), 1000));
         }
-        when(timer.getCurrentTime()).thenReturn(1500L);
-        for (int i = 0; i < 1000; i++) {
+        verify(marketDataProcessor, times(100)).publishAggregatedMarketData(any());
+        when(timer.getCurrentTime()).thenReturn(1620664506740L);
+        for (int i = 0; i < 100; i++) {
             marketDataProcessor.onMessage(getDummyMarketData(faker.stock().nsdqSymbol(), 1500));
         }
-        when(timer.getCurrentTime()).thenReturn(2000L);
-        for (int i = 0; i < 1000; i++) {
+        when(timer.getCurrentTime()).thenReturn(1620664506840L);
+        for (int i = 0; i < 100; i++) {
             marketDataProcessor.onMessage(getDummyMarketData(faker.stock().nsdqSymbol(), 2000));
         }
-        verify(marketDataProcessor, times(200)).publishAggregatedMarketData(any());
+        verify(marketDataProcessor, times(100)).publishAggregatedMarketData(any());
     }
 
     @Test

@@ -37,8 +37,9 @@ public class MarketDataProcessor {
 
 	// Receive incoming market data
 	public void onMessage(MarketData data) {
-		if (isSymbolAllowed(data)) {
-			if (rateLimiter.isAllowed()) {
+
+		if (rateLimiter.isAllowed()) {
+			if (isSymbolAllowed(data)) {
 				LOG.debug("Allowed {}", System.currentTimeMillis());
 				publishAggregatedMarketData(data);
 			}
