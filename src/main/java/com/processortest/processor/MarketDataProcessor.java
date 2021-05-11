@@ -49,7 +49,7 @@ public class MarketDataProcessor {
 	/**
 	 * Check whether symbol has been processed by the processor within [T:T-1]
 	 * and if it carries the latest market data, which is dictated by the field
-	 * {@link MarketData#getUpdateTime()}
+	 * * {@link MarketData#getUpdateTime()}
 	 * 
 	 * @param data
 	 * @return

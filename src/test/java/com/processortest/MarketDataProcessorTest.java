@@ -4,6 +4,9 @@ import static org.mockito.Mockito.*;
 
 import java.math.BigDecimal;
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -44,12 +47,34 @@ public final class MarketDataProcessorTest {
     }
 
     @Test
-    public void testPublishNotMoreThanHundredPerSecond(){
+    public void testPublishAHundredPerSecond(){
+        // seed that constantly produce 100 distinct symbols
         Faker faker = new Faker(new Random(9));
         when(timer.getCurrentTime()).thenReturn(1000L);
         for (int i = 0; i < 100; i++) {
             marketDataProcessor.onMessage(getDummyMarketData(faker.stock().nsdqSymbol(), 1000));
         }
+        verify(marketDataProcessor, times(100)).publishAggregatedMarketData(any());
+    }
+
+    @Test
+    public void testConcurrentPublishMoreThanHundredPerSecond() throws InterruptedException {
+        int numberOfThreads = 5;
+
+        Faker faker = new Faker(new Random(9));
+        ExecutorService service = Executors.newFixedThreadPool(numberOfThreads);
+        CountDownLatch latch = new CountDownLatch(numberOfThreads);
+        for (int i = 0; i < numberOfThreads; i++) {
+            service.submit(() -> {
+                when(timer.getCurrentTime()).thenReturn(1000L);
+                for (int j = 0; j < 21; j++) {
+                    marketDataProcessor.onMessage(getDummyMarketData(faker.stock().nsdqSymbol(), 1000));
+                }
+                latch.countDown();
+            });
+        }
+        latch.await();
+        service.shutdown();
         verify(marketDataProcessor, times(100)).publishAggregatedMarketData(any());
     }
 
@@ -116,6 +141,95 @@ public final class MarketDataProcessorTest {
         marketDataProcessor.onMessage(getDummyMarketData("MSFT", 1620664496840L));
         verify(marketDataProcessor, times(2)).publishAggregatedMarketData(any());
     }
+
+
+	/**
+     * Faker with the seed will provide the same in-order symbols on every
+     * request under each thread, namely:
+     *
+     * Thread 1:
+     * MSFT 1620664496540 [arrival time]
+     * TSLA 1620664496560
+     * APPL 1620664496580
+     *
+     * Thread 2:
+     * MSFT 1620664496560
+     * TSLA 1620664496580
+     * APPL 1620664496600
+     *
+     * Thread 3:
+     * MSFT 1620664496580
+     * TSLA 1620664496600
+     * APPL 1620664496620
+     *
+     * Thread 4:
+     * MSFT 1620664496600
+     * TSLA 1620664496620
+     * APPL 1620664496640
+     *
+     * @throws InterruptedException
+     */
+    @Test
+    public void testConcurrentPublishMoreThanOneUpdatePerSecond() throws InterruptedException {
+        int numberOfThreads = 5;
+
+        ExecutorService service = Executors.newFixedThreadPool(numberOfThreads*3);
+        CountDownLatch latch = new CountDownLatch(numberOfThreads);
+        for (int i = 0; i < numberOfThreads; i++) {
+            Faker faker = new Faker(new Random(9));
+            int finalI = i;
+            service.submit(() -> {
+                for (int j = 0; j < 50; j++) {
+                    int finalJ = j;
+                    String symbol = faker.stock().nsdqSymbol();
+                    when(timer.getCurrentTime()).thenReturn((1620664496540L+ finalJ*20+ finalI *20));
+                    LOG.error(symbol + ": " + (1620664496540L+ finalJ*20+ finalI *20));
+                    marketDataProcessor.onMessage(getDummyMarketData(symbol, 2000L+ finalJ*20));
+                }
+                latch.countDown();
+            });
+        }
+        latch.await();
+        service.shutdown();
+        verify(marketDataProcessor, times(50)).publishAggregatedMarketData(any());
+    }
+//
+//    /**
+//     *
+//     * @throws InterruptedException
+//     */
+//    @Test
+//    public void testConcurrentComplexScenario() throws InterruptedException {
+//        int numberOfThreads = 3;
+//
+//        ExecutorService service = Executors.newFixedThreadPool(numberOfThreads);
+//        CountDownLatch latch = new CountDownLatch(numberOfThreads);
+//        service.submit(() -> {
+//            for (int j = 0; j < 500; j++) {
+//                when(timer.getCurrentTime()).thenReturn(1620664496540L+ j*20);
+//                marketDataProcessor.onMessage(getDummyMarketData("MSFT", 1620664496340L+ j*20));
+//            }
+//            latch.countDown();
+//        });
+//        service.submit(() -> {
+//            for (int j = 0; j < 300; j++) {
+//                when(timer.getCurrentTime()).thenReturn(1620664496530L+ j*30);
+//                marketDataProcessor.onMessage(getDummyMarketData("APPL", 1620664496340L+ j*20));
+//            }
+//            latch.countDown();
+//        });
+//        service.submit(() -> {
+//            for (int j = 0; j < 200; j++) {
+//                when(timer.getCurrentTime()).thenReturn(1620664496550L+ j*50);
+//                marketDataProcessor.onMessage(getDummyMarketData("TSLA", 1620664496340L+ j*20));
+//            }
+//            latch.countDown();
+//        });
+//        latch.await();
+//        service.shutdown();
+//        verify(marketDataProcessor, times(50)).publishAggregatedMarketData(any());
+//    }
+//
 
     private MarketData getDummyMarketData(final String symbol, final long updateTime){
         return new MarketData(symbol, BigDecimal.ONE, BigDecimal.ONE,BigDecimal.ONE, updateTime);
