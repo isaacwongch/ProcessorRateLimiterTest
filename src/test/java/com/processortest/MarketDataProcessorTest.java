@@ -137,9 +137,9 @@ public final class MarketDataProcessorTest {
     public void testSymbolAlwaysHaveTheLatestDataWhenPublishOneOutdatedData() {
         when(timer.getCurrentTime()).thenReturn(1620664506540L);
         marketDataProcessor.onMessage(getDummyMarketData("MSFT", 1620664496540L));
-        when(timer.getCurrentTime()).thenReturn(1620664507540L);
+        when(timer.getCurrentTime()).thenReturn(1620664507541L);
         marketDataProcessor.onMessage(getDummyMarketData("MSFT", 1620664496440L));
-        when(timer.getCurrentTime()).thenReturn(1620664508540L);
+        when(timer.getCurrentTime()).thenReturn(1620664508542L);
         marketDataProcessor.onMessage(getDummyMarketData("MSFT", 1620664496840L));
         verify(marketDataProcessor, times(2)).publishAggregatedMarketData(any());
     }

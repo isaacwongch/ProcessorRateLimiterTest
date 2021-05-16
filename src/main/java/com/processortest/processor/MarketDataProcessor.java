@@ -1,7 +1,7 @@
 package com.processortest.processor;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +32,7 @@ public class MarketDataProcessor {
 	public MarketDataProcessor(final MyTimer timer) {
 		this.rateLimiter = new SlidingWindowRateLimiter(timer);
 		this.timer = timer;
-		this.symbolLastUpdateMap = new HashMap<>();
+		this.symbolLastUpdateMap = new ConcurrentHashMap<>();
 	}
 
 	// Receive incoming market data
@@ -56,17 +56,34 @@ public class MarketDataProcessor {
 	 * @return
 	 */
 	public boolean isSymbolAllowed(final MarketData data) {
-		synchronized (symbolLastUpdateMap) {
-			SymbolLatestUpdateHistory hist = symbolLastUpdateMap.get(data.getSymbol());
-			if (hist == null || (timer.getCurrentTime() - hist.getSystemProcessTime()  > 1000
-					&& data.getUpdateTime() > hist.getMarketUpdateTime())) {
-				symbolLastUpdateMap.put(data.getSymbol(),
-						new SymbolLatestUpdateHistory(data.getSymbol(), data.getUpdateTime(), timer.getCurrentTime()));
-				return true;
-			}
+		if (symbolLastUpdateMap.putIfAbsent(data.getSymbol(),
+				new SymbolLatestUpdateHistory(data.getSymbol(), data.getUpdateTime(), timer.getCurrentTime())) == null)
+			return true;
 
-			return false;
-		}
+		long currentTime = timer.getCurrentTime();
+		SymbolLatestUpdateHistory history = symbolLastUpdateMap.computeIfPresent(data.getSymbol(), (k, v) -> {
+			if (timer.getCurrentTime() - v.getSystemProcessTime() > 1000
+					&& data.getUpdateTime() > v.getMarketUpdateTime()) {
+				return new SymbolLatestUpdateHistory(data.getSymbol(), data.getUpdateTime(), timer.getCurrentTime());
+			}
+			return v;
+		});
+		return currentTime < history.getSystemProcessTime();
+
+		// synchronized (symbolLastUpdateMap) {
+		// SymbolLatestUpdateHistory hist =
+		// symbolLastUpdateMap.get(data.getSymbol());
+		// if (hist == null || (timer.getCurrentTime() -
+		// hist.getSystemProcessTime() > 1000
+		// && data.getUpdateTime() > hist.getMarketUpdateTime())) {
+		// symbolLastUpdateMap.put(data.getSymbol(),
+		// new SymbolLatestUpdateHistory(data.getSymbol(), data.getUpdateTime(),
+		// timer.getCurrentTime()));
+		// return true;
+		// }
+		//
+		// return false;
+		// }
 	}
 
 	// Publish aggregated and throttled market data
