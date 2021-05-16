@@ -10,3 +10,13 @@
 * Upon calling `publishAggregatedMarketData`, market data of that symbol should carry the latest info, which is 
   dictated by the field `updateTime`
 
+**Further Thought**
+* The order of `rateLimiter.isAllowed()` and `isSymbolAllowed()`:
+  * if it passed `rateLimiter.isAllowed()` but not `isSymbolAllowed()` then a permit is wasted. 
+  (Depends on the frequency of same symbol update, update from market provider or exchange?)
+  * if it passed `isSymbolAllowed()` but not `rateLimiter.isAllowed()` then the update is recorded but not reflected in the DB.
+    * If scenario like `T1: Symbol:MSFT updateTime: 14:02:02:00` & `T2: Symbol:MSFT updateTime: 14:02:01:00` then it might be possible.
+* Reduce memory usage in the rate limiter --> ExpiryMap()? (https://github.com/jhalterman/expiringmap) 
+* How to handle rejected requests?
+* Use of BloomFilter (https://github.com/RedisBloom/RedisBloom) to replace for the symbol allowance check?
+* CMH parameters load factor
